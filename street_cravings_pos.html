@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Street Cravings - Enterprise POS & Customer Tracking</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        @media print {
+            body * { visibility: hidden; }
+            #receipt-print-area, #receipt-print-area * { visibility: visible; }
+            #receipt-print-area { position: absolute; left: 0; top: 0; width: 100%; }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 font-sans flex flex-col min-h-screen">
+
+    <!-- Header -->
+    <header class="bg-black border-b border-amber-600 p-4 flex flex-col md:flex-row justify-between items-center shadow-lg gap-3">
+        <div class="flex items-center space-x-4">
+            <img id="site-logo" src="" alt="Street Cravings Logo" class="h-16 w-16 rounded-full border-2 border-amber-500 object-cover bg-black">
+            <div>
+                <span class="text-2xl font-black text-amber-500 tracking-wider">🍔 STREET CRAVINGS</span>
+                <div class="text-xs text-gray-400 font-medium">Owner: <span class="text-amber-400 font-bold">Attique Ur Rehman (Al-Kuwait)</span></div>
+                <div class="text-[10px] bg-amber-600 text-black px-2 py-0.5 rounded font-bold inline-block mt-0.5">Enterprise POS v7.1</div>
+            </div>
+        </div>
+        <div class="text-xs text-amber-400 font-semibold text-center md:text-right">
+            📍 Sialkot Road, Near Bank of Punjab, Gujranwala<br>
+            📞 0302 3006901<br>
+            <span class="text-gray-400 text-[11px]">Developer: Shahid Meraj (M.Ed, Medical Asst, Pak Army)</span>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="flex border-b border-gray-800 bg-gray-950 px-4 overflow-x-auto">
+        <button onclick="switchTab('pos')" id="tab-pos" class="px-5 py-3 font-bold border-b-2 border-amber-500 text-amber-500 focus:outline-none whitespace-nowrap">🛒 POS Billing</button>
+        <button onclick="switchTab('inventory')" id="tab-inventory" class="px-5 py-3 font-bold border-b-2 border-transparent text-gray-400 hover:text-white focus:outline-none whitespace-nowrap">📦 Stock & Inventory</button>
+        <button onclick="switchTab('expenses')" id="tab-expenses" class="px-5 py-3 font-bold border-b-2 border-transparent text-gray-400 hover:text-white focus:outline-none whitespace-nowrap">💸 Expenses & Payroll</button>
+        <button onclick="switchTab('reports')" id="tab-reports" class="px-5 py-3 font-bold border-b-2 border-transparent text-gray-400 hover:text-white focus:outline-none whitespace-nowrap">📈 Reports & Customers</button>
+    </nav>
+
+    <!-- Main Content Container -->
+    <main class="p-4 max-w-7xl mx-auto flex-grow w-full">
+
+        <!-- TAB 1: POS BILLING -->
+        <div id="section-pos" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 bg-gray-800 p-4 rounded-xl border border-gray-700 shadow">
+                <h2 class="text-lg font-bold text-amber-400 mb-3">Menu & Deals</h2>
+                <div class="mb-4 flex flex-wrap gap-2">
+                    <button onclick="filterMenu('All')" class="px-3 py-1 bg-amber-600 text-black text-sm font-bold rounded">All</button>
+                    <button onclick="filterMenu('Burgers')" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-sm rounded">Burgers</button>
+                    <button onclick="filterMenu('Pizzas')" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-sm rounded">Pizzas</button>
+                    <button onclick="filterMenu('Wraps & Fries')" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-sm rounded">Wraps & Fries</button>
+                    <button onclick="filterMenu('Soft Drinks')" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-sm rounded">🥤 Soft Drinks</button>
+                    <button onclick="filterMenu('Deals')" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-sm rounded">⭐ Deals</button>
+                </div>
+                <div id="menu-grid" class="grid grid-cols-2 md:grid-cols-4 gap-3 max-h-[480px] overflow-y-auto pr-2"></div>
+            </div>
+
+            <!-- Current Order Cart -->
+            <div class="bg-gray-800 p-4 rounded-xl border border-gray-700 flex flex-col justify-between shadow">
+                <div>
+                    <h2 class="text-lg font-bold text-amber-400 mb-2">Current Order</h2>
+                    
+                    <!-- Customer Details Input -->
+                    <div class="mb-3 space-y-2 bg-gray-900 p-2.5 rounded-lg border border-gray-700">
+                        <div class="text-xs text-amber-400 font-bold">👤 Customer Information</div>
+                        <input type="text" id="cust-name" placeholder="Customer Name" class="w-full bg-gray-800 border border-gray-600 rounded p-1 text-xs text-white">
+                        <input type="text" id="cust-phone" placeholder="Phone Number (e.g. 0300...)" class="w-full bg-gray-800 border border-gray-600 rounded p-1 text-xs text-white">
+                    </div>
+
+                    <!-- Order Type Selector -->
+                    <div class="mb-3 flex gap-2 bg-gray-900 p-1.5 rounded-lg border border-gray-700">
+                        <label class="flex-1 text-center cursor-pointer text-xs font-bold py-1.5 rounded bg-amber-600 text-black" id="type-takeaway" onclick="setOrderType('Takeaway')">Takeaway</label>
+                        <label class="flex-1 text-center cursor-pointer text-xs font-bold py-1.5 rounded bg-gray-800 text-gray-300" id="type-delivery" onclick="setOrderType('Delivery')">Delivery</label>
+                    </div>
+
+                    <!-- Delivery Fee Input -->
+                    <div id="delivery-box" class="hidden mb-3 bg-gray-900 p-2 rounded border border-gray-700">
+                        <label class="block text-xs text-amber-400 font-bold mb-1">Delivery Charges (PKR)</label>
+                        <input type="number" id="delivery-fee-input" value="50" onchange="renderCart()" class="w-full bg-gray-800 border border-gray-600 rounded p-1 text-sm text-white">
+                    </div>
+
+                    <div id="cart-items" class="space-y-2 max-h-[190px] overflow-y-auto pr-1 mb-3">
+                        <p class="text-gray-500 text-sm italic">Cart is empty...</p>
+                    </div>
+                </div>
+                <div class="border-t border-gray-700 pt-3">
+                    <div class="flex justify-between text-lg font-black mb-3">
+                        <span>Total:</span>
+                        <span id="cart-total" class="text-amber-400">PKR 0.00</span>
+                    </div>
+                    <button onclick="checkout()" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-lg shadow mb-2">Checkout & Print Receipt</button>
+                    <button onclick="clearCart()" class="w-full bg-red-600 hover:bg-red-500 text-white text-xs font-semibold py-2 rounded-lg">Clear Cart</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: STOCK & INVENTORY -->
+        <div id="section-inventory" class="hidden space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow">
+                    <h2 class="text-xl font-bold text-amber-400 mb-2">Add / Restock Inventory Item</h2>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Item Name</label>
+                            <input type="text" id="inv-name" placeholder="e.g. Chicken Patties / Burger Buns" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-sm">
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Quantity</label>
+                                <input type="number" id="inv-qty" placeholder="100" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Min. Alert Limit</label>
+                                <input type="number" id="inv-min" placeholder="10" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-sm">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Unit Cost (PKR)</label>
+                            <input type="number" id="inv-cost" placeholder="0.00" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-sm">
+                        </div>
+                        <button onclick="saveInventoryItem()" class="w-full bg-amber-600 hover:bg-amber-500 text-black font-bold py-2.5 rounded">Save Stock Item</button>
+                    </div>
+                </div>
+
+                <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow flex flex-col justify-between">
+                    <div>
+                        <h2 class="text-xl font-bold text-amber-400 mb-2">⚠️ Low Stock Alert</h2>
+                        <div id="low-stock-list" class="space-y-2 max-h-[220px] overflow-y-auto"></div>
+                    </div>
+                    <button onclick="loadInventoryData()" class="mt-4 bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 rounded">Refresh Stock Status</button>
+                </div>
+            </div>
+
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow">
+                <h2 class="text-xl font-bold text-amber-400 mb-4">Complete Stock Report</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="border-b border-gray-700 text-gray-400">
+                                <th class="p-3">Item Name</th>
+                                <th class="p-3">Current Qty</th>
+                                <th class="p-3">Min Alert</th>
+                                <th class="p-3">Unit Cost (PKR)</th>
+                                <th class="p-3">Total Value</th>
+                                <th class="p-3">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stock-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: EXPENSES & PAYROLL -->
+        <div id="section-expenses" class="hidden grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow">
+                <h2 class="text-lg font-bold text-amber-400 mb-2">🔥 Consumables & Utilities</h2>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Expense Name</label>
+                        <input type="text" id="exp-name" placeholder="e.g. LPG Cylinder / Oil" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Cost (PKR)</label>
+                        <input type="number" id="exp-cost" placeholder="0.00" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-sm">
+                    </div>
+                    <button onclick="addExpense()" class="w-full bg-amber-600 hover:bg-amber-500 text-black font-bold py-2.5 rounded text-sm">Save Expense</button>
+                </div>
+            </div>
+
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow">
+                <h2 class="text-lg font-bold text-amber-400 mb-2">👨‍🍳 Employee Payroll</h2>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Employee Name & Role</label>
+                        <input type="text" id="emp-name" placeholder="e.g. Chef Ali" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Salary / Wage Paid (PKR)</label>
+                        <input type="number" id="emp-pay" placeholder="0.00" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-sm">
+                    </div>
+                    <button onclick="addPayroll()" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-2.5 rounded text-sm">Record Salary Payment</button>
+                </div>
+            </div>
+
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow">
+                <h2 class="text-lg font-bold text-amber-400 mb-2">🏢 Fixed Assets</h2>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Asset Name</label>
+                        <input type="text" id="a-name" placeholder="e.g. Deep Fryer" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Asset Value (PKR)</label>
+                        <input type="number" id="a-value" placeholder="0.00" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-sm">
+                    </div>
+                    <button onclick="addAsset()" class="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2.5 rounded text-sm">Save Fixed Asset</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4: REPORTS & CUSTOMERS -->
+        <div id="section-reports" class="hidden space-y-6 max-w-5xl mx-auto">
+            <div class="bg-gray-800 p-4 rounded-xl border border-gray-700 flex flex-wrap justify-between items-center gap-4 shadow">
+                <h2 class="text-xl font-bold text-amber-400">Financial & Operations Reports</h2>
+                <div class="space-x-2">
+                    <button onclick="setReportFilter('today')" id="filter-today" class="px-3 py-1 bg-gray-700 text-xs font-bold rounded">Today</button>
+                    <button onclick="setReportFilter('month')" id="filter-month" class="px-3 py-1 bg-gray-700 text-xs font-bold rounded">This Month</button>
+                    <button onclick="setReportFilter('all')" id="filter-all" class="px-3 py-1 bg-amber-600 text-black text-xs font-bold rounded">Lifetime All-Time</button>
+                </div>
+            </div>
+
+            <!-- P&L Statement Box -->
+            <div id="pl-report" class="space-y-4 text-base bg-gray-800 p-6 rounded-xl border border-gray-700 shadow"></div>
+
+            <!-- Customer Tracking Report -->
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow">
+                <h3 class="text-lg font-bold text-amber-400 mb-3">👥 Customer Purchase Records & Tracking</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="border-b border-gray-700 text-gray-400">
+                                <th class="p-3">Customer ID / Name</th>
+                                <th class="p-3">Phone Number</th>
+                                <th class="p-3">Total Orders</th>
+                                <th class="p-3">Total Spent (PKR)</th>
+                                <th class="p-3">Last Order Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="customer-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Assets & Delivery Summary -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow">
+                    <h3 class="text-lg font-bold text-cyan-400 mb-3">🏢 Fixed Assets Report</h3>
+                    <div id="assets-report-list" class="space-y-2 text-sm"></div>
+                </div>
+                <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow">
+                    <h3 class="text-lg font-bold text-amber-400 mb-3">🛵 Delivery Summary Report</h3>
+                    <div id="delivery-report-box" class="space-y-2 text-sm"></div>
+                </div>
+            </div>
+
+            <div class="flex gap-4">
+                <button onclick="loadReports()" class="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-lg">Refresh All Reports</button>
+                <button onclick="exportData()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-3 rounded-lg text-sm">💾 Export / Backup Data</button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer Credit -->
+    <footer class="bg-black border-t border-gray-800 text-center py-3 text-xs text-gray-400 mt-6">
+        Street Cravings POS System | Owner: Attique Ur Rehman (Al-Kuwait) | Developed by: Shahid Meraj (M.Ed, Medical Asst, Pak Army)
+    </footer>
+
+    <!-- Hidden Receipt Modal -->
+    <div id="receipt-modal" class="fixed inset-0 bg-black/70 hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white text-black p-6 rounded-xl max-w-sm w-full shadow-2xl relative">
+            <div id="receipt-print-area" class="font-mono text-sm space-y-1.5">
+                <img id="receipt-logo" src="" alt="Logo" class="h-16 w-16 rounded-full mx-auto border border-black object-cover">
+                <div class="text-center font-bold text-base">STREET CRAVINGS</div>
+                <div class="text-center text-[11px] text-gray-700">Owner: Attique Ur Rehman (Al-Kuwait)</div>
+                <div class="text-center text-xs text-gray-700">Sialkot Road, Near Bank of Punjab, Gujranwala</div>
+                <div class="text-center text-xs text-gray-700">Phone: 0302 3006901</div>
+                <div class="border-t border-dashed border-black my-2"></div>
+                <div id="receipt-meta" class="text-xs"></div>
+                <div class="border-t border-dashed border-black my-1"></div>
+                <div id="receipt-customer" class="text-xs font-semibold"></div>
+                <div class="border-t border-dashed border-black my-1"></div>
+                <div id="receipt-items-list" class="space-y-0.5 text-xs"></div>
+                <div class="border-t border-dashed border-black my-2"></div>
+                <div id="receipt-delivery-fee" class="text-xs flex justify-between font-semibold"></div>
+                <div id="receipt-total" class="font-bold flex justify-between text-base"></div>
+                <div class="border-t border-dashed border-black my-2"></div>
+                <div class="text-center text-xs font-semibold">"Crave it. Love it. Street Cravings it!"</div>
+                <div class="text-center text-[9px] text-gray-500 pt-1">Dev: Shahid Meraj (Pak Army)</div>
+            </div>
+            <div class="mt-6 flex space-x-2">
+                <button onclick="window.print()" class="flex-1 bg-black text-white font-bold py-2.5 rounded text-sm">Print Receipt</button>
+                <button onclick="closeReceipt()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-black font-bold py-2.5 rounded text-sm">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const logoBase64 = "data:image/png;base64,{{ENCODED_LOGO}}";
+        // Fallback dynamic generator or embedded base64 for logo
+        document.getElementById('site-logo').src = logoBase64;
+        document.getElementById('receipt-logo').src = logoBase64;
+
+        const menuItems = [
+            { name: "Zinger Burger", price: 350, category: "Burgers" },
+            { name: "King Zinger Burger", price: 500, category: "Burgers" },
+            { name: "Royal Zinger Burger", price: 500, category: "Burgers" },
+            { name: "Patty Burger", price: 250, category: "Burgers" },
+            { name: "Double Patty Burger", price: 400, category: "Burgers" },
+            { name: "Crown Melt Burger", price: 350, category: "Burgers" },
+            { name: "Malai Boti Pizza (S)", price: 450, category: "Pizzas" },
+            { name: "Malai Boti Pizza (M)", price: 750, category: "Pizzas" },
+            { name: "Malai Boti Pizza (L)", price: 1000, category: "Pizzas" },
+            { name: "Fajita Pizza (S)", price: 450, category: "Pizzas" },
+            { name: "Fajita Pizza (M)", price: 750, category: "Pizzas" },
+            { name: "Fajita Pizza (L)", price: 1000, category: "Pizzas" },
+            { name: "Twister", price: 400, category: "Wraps & Fries" },
+            { name: "Zinger Wrap", price: 500, category: "Wraps & Fries" },
+            { name: "Regular Fries", price: 250, category: "Wraps & Fries" },
+            { name: "Saucy Fries", price: 350, category: "Wraps & Fries" },
+            { name: "Zinger Loaded Fries", price: 600, category: "Wraps & Fries" },
+            { name: "Pepsi NR", price: 80, category: "Soft Drinks" },
+            { name: "Dew NR", price: 80, category: "Soft Drinks" },
+            { name: "Next Cola NR", price: 70, category: "Soft Drinks" },
+            { name: "Coke 1 Lit", price: 170, category: "Soft Drinks" },
+            { name: "Dew 1 Lit", price: 170, category: "Soft Drinks" },
+            { name: "Next Cola 1 Lit", price: 130, category: "Soft Drinks" },
+            { name: "Sprite 1 Lit", price: 170, category: "Soft Drinks" },
+            { name: "Coke 1.5 Lit", price: 200, category: "Soft Drinks" },
+            { name: "Next Cola 1.5 Lit", price: 160, category: "Soft Drinks" },
+            { name: "Sprite 1.5 Lit", price: 200, category: "Soft Drinks" },
+            { name: "⭐ Student Value Deal", price: 499, category: "Deals", desc: "Zinger Burger, Reg. Fries, 1x NR Next Cola" },
+            { name: "⭐ Crown Melt Special", price: 499, category: "Deals", desc: "Crown Melt Burger, Reg. Fries, 1x NR Next Cola" },
+            { name: "⭐ Wrap & Fries Deal", price: 599, category: "Deals", desc: "Twister, Reg. Fries, 1x NR Next Cola" },
+            { name: "⭐ Couple Combo", price: 899, category: "Deals", desc: "2x Zinger Burger, Reg. Fries, 1x 1LTR Next Cola" },
+            { name: "⭐ Friends Pizza Deal", price: 999, category: "Deals", desc: "Medium Pizza, Reg. Fries, 1x 1LTR Next Cola" },
+            { name: "⭐ Family Feast", price: 1750, category: "Deals", desc: "Large Pizza, 2x Patty Burger, Reg. Fries, 1x 1.5LTR Next Cola" }
+        ];
+
+        let cart = [];
+        let orderType = 'Takeaway';
+        let currentFilter = 'all';
+
+        function setOrderType(type) {
+            orderType = type;
+            if (type === 'Takeaway') {
+                document.getElementById('type-takeaway').className = "flex-1 text-center cursor-pointer text-xs font-bold py-1.5 rounded bg-amber-600 text-black";
+                document.getElementById('type-delivery').className = "flex-1 text-center cursor-pointer text-xs font-bold py-1.5 rounded bg-gray-800 text-gray-300";
+                document.getElementById('delivery-box').classList.add('hidden');
+            } else {
+                document.getElementById('type-delivery').className = "flex-1 text-center cursor-pointer text-xs font-bold py-1.5 rounded bg-amber-600 text-black";
+                document.getElementById('type-takeaway').className = "flex-1 text-center cursor-pointer text-xs font-bold py-1.5 rounded bg-gray-800 text-gray-300";
+                document.getElementById('delivery-box').classList.remove('hidden');
+            }
+            renderCart();
+        }
+
+        function renderMenu(filter = 'All') {
+            const grid = document.getElementById('menu-grid');
+            grid.innerHTML = '';
+            const filtered = filter === 'All' ? menuItems : menuItems.filter(i => i.category === filter);
+            filtered.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'bg-gray-900 border border-gray-700 hover:border-amber-500 p-3 rounded-lg cursor-pointer transition flex flex-col justify-between';
+                card.onclick = () => addToCart(item);
+                let descHtml = item.desc ? `<p class="text-[11px] text-gray-400 mt-1 italic">${item.desc}</p>` : '';
+                card.innerHTML = `<div><div class="font-bold text-sm text-gray-200">${item.name}</div>${descHtml}</div><div class="text-amber-400 font-bold mt-3 text-lg">PKR ${item.price}</div>`;
+                grid.appendChild(card);
+            });
+        }
+
+        function filterMenu(cat) { renderMenu(cat); }
+
+        function addToCart(item) {
+            const existing = cart.find(i => i.name === item.name);
+            if (existing) existing.qty++;
+            else cart.push({ ...item, qty: 1 });
+            renderCart();
+        }
+
+        function renderCart() {
+            const container = document.getElementById('cart-items');
+            if (cart.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-sm italic">Cart is empty...</p>';
+                document.getElementById('cart-total').innerText = 'PKR 0.00';
+                return;
+            }
+            container.innerHTML = '';
+            let subtotal = 0;
+            cart.forEach((item, index) => {
+                subtotal += item.price * item.qty;
+                const row = document.createElement('div');
+                row.className = 'flex justify-between items-center bg-gray-900 p-2 rounded text-xs';
+                row.innerHTML = `<div class='flex-1'><div class="font-semibold text-gray-100">${item.name}</div><div class="text-amber-400">PKR ${item.price} x ${item.qty}</div></div><div class="flex items-center space-x-1.5"><span class="font-bold text-amber-400">PKR ${item.price * item.qty}</span><button onclick="changeQty(${index}, 1)" class="bg-gray-700 px-2 py-0.5 rounded font-bold">+</button><button onclick="changeQty(${index}, -1)" class="bg-gray-700 px-2 py-0.5 rounded font-bold">-</button></div>`;
+                container.appendChild(row);
+            });
+
+            let deliveryFee = orderType === 'Delivery' ? parseFloat(document.getElementById('delivery-fee-input').value) || 0 : 0;
+            let grandTotal = subtotal + deliveryFee;
+
+            document.getElementById('cart-total').innerText = `PKR ${grandTotal.toFixed(2)}`;
+        }
+
+        function changeQty(index, delta) {
+            cart[index].qty += delta;
+            if (cart[index].qty <= 0) cart.splice(index, 1);
+            renderCart();
+        }
+
+        function clearCart() { cart = []; renderCart(); }
+
+        function checkout() {
+            if (cart.length === 0) { alert("Cart is empty!"); return; }
+            const custName = document.getElementById('cust-name').value.trim() || "Walk-in Customer";
+            const custPhone = document.getElementById('cust-phone').value.trim() || "N/A";
+            const customerId = "CUST-" + Math.abs(hashCode(custName + custPhone)).toString().slice(-5);
+
+            let subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            let deliveryFee = orderType === 'Delivery' ? parseFloat(document.getElementById('delivery-fee-input').value) || 0 : 0;
+            let grandTotal = subtotal + deliveryFee;
+
+            const now = new Date();
+            const dateStr = now.toLocaleString();
+            const rawDate = now.toISOString().split('T')[0];
+            const receiptId = "SC-" + Date.now().toString().slice(-6);
+
+            let sales = JSON.parse(localStorage.getItem('sc_sales') || '[]');
+            sales.push({ 
+                date: dateStr, 
+                rawDate: rawDate, 
+                items: [...cart], 
+                subtotal: subtotal, 
+                deliveryFee: deliveryFee, 
+                total: grandTotal, 
+                orderType: orderType, 
+                id: receiptId,
+                customer: { id: customerId, name: custName, phone: custPhone }
+            });
+            localStorage.setItem('sc_sales', JSON.stringify(sales));
+
+            document.getElementById('receipt-meta').innerHTML = `<span>Receipt: ${receiptId}</span><br><span>Date: ${dateStr}</span><br><span>Type: <b>${orderType}</b></span>`;
+            document.getElementById('receipt-customer').innerHTML = `Customer: <b>${custName}</b> (${custPhone})<br>ID: ${customerId}`;
+            
+            const listEl = document.getElementById('receipt-items-list');
+            listEl.innerHTML = '';
+            cart.forEach(i => { listEl.innerHTML += `<div class="flex justify-between"><span>${i.name} (x${i.qty})</span><span>${(i.price * i.qty).toFixed(2)}</span></div>`; });
+            
+            if (orderType === 'Delivery' && deliveryFee > 0) {
+                document.getElementById('receipt-delivery-fee').innerHTML = `<span>Delivery Charges:</span><span>PKR ${deliveryFee.toFixed(2)}</span>`;
+            } else {
+                document.getElementById('receipt-delivery-fee').innerHTML = '';
+            }
+
+            document.getElementById('receipt-total').innerHTML = `<span>GRAND TOTAL:</span><span>PKR ${grandTotal.toFixed(2)}</span>`;
+
+            document.getElementById('receipt-modal').classList.remove('hidden');
+            cart = [];
+            document.getElementById('cust-name').value = '';
+            document.getElementById('cust-phone').value = '';
+            renderCart();
+        }
+
+        function hashCode(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                hash = (hash << 5) - hash + str.charCodeAt(i);
+                hash |= 0;
+            }
+            return hash;
+        }
+
+        function closeReceipt() { document.getElementById('receipt-modal').classList.add('hidden'); }
+
+        // --- Inventory Functions ---
+        function saveInventoryItem() {
+            const name = document.getElementById('inv-name').value;
+            const qty = parseInt(document.getElementById('inv-qty').value);
+            const min = parseInt(document.getElementById('inv-min').value);
+            const cost = parseFloat(document.getElementById('inv-cost').value);
+
+            if (!name || isNaN(qty) || isNaN(min) || isNaN(cost)) { alert("Please complete all inventory fields correctly."); return; }
+            
+            let inventory = JSON.parse(localStorage.getItem('sc_inventory') || '[]');
+            const existing = inventory.find(i => i.name.toLowerCase() === name.toLowerCase());
+            if (existing) {
+                existing.qty += qty;
+                existing.cost = cost;
+                existing.min = min;
+            } else {
+                inventory.push({ name, qty, min, cost });
+            }
+            localStorage.setItem('sc_inventory', JSON.stringify(inventory));
+            alert("Inventory updated successfully!");
+            document.getElementById('inv-name').value = '';
+            document.getElementById('inv-qty').value = '';
+            document.getElementById('inv-min').value = '';
+            document.getElementById('inv-cost').value = '';
+            loadInventoryData();
+        }
+
+        function loadInventoryData() {
+            let inventory = JSON.parse(localStorage.getItem('sc_inventory') || '[]');
+            const tableBody = document.getElementById('stock-table-body');
+            const lowStockList = document.getElementById('low-stock-list');
+            tableBody.innerHTML = '';
+            lowStockList.innerHTML = '';
+
+            if (inventory.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="6" class="p-3 text-center text-gray-500 italic">No stock items added yet.</td></tr>`;
+                lowStockList.innerHTML = `<p class="text-xs text-gray-500 italic">No low stock alerts.</p>`;
+                return;
+            }
+
+            inventory.forEach(item => {
+                const totalVal = item.qty * item.cost;
+                const isLow = item.qty <= item.min;
+                const statusHtml = isLow ? `<span class="bg-red-900 text-red-200 px-2 py-0.5 rounded text-xs font-bold">LOW STOCK</span>` : `<span class="bg-green-900 text-green-200 px-2 py-0.5 rounded text-xs">Adequate</span>`;
+                
+                tableBody.innerHTML += `<tr class="border-b border-gray-700/50"><td class="p-3 font-semibold">${item.name}</td><td class="p-3">${item.qty}</td><td class="p-3">${item.min}</td><td class="p-3">PKR ${item.cost}</td><td class="p-3 text-amber-400">PKR ${totalVal.toLocaleString()}</td><td class="p-3">${statusHtml}</td></tr>`;
+
+                if (isLow) {
+                    lowStockList.innerHTML += `<div class="bg-red-950/60 border border-red-800 p-2.5 rounded flex justify-between items-center text-xs"><span><b>${item.name}</b> (Left: ${item.qty})</span><span class="text-red-400 font-bold">Needs Restock</span></div>`;
+                }
+            });
+
+            if (lowStockList.innerHTML === '') {
+                lowStockList.innerHTML = `<p class="text-xs text-green-400 italic">All items are at healthy stock levels!</p>`;
+            }
+        }
+
+        // --- Expenses & Payroll ---
+        function addExpense() {
+            const name = document.getElementById('exp-name').value;
+            const cost = parseFloat(document.getElementById('exp-cost').value);
+            if (!name || isNaN(cost) || cost <= 0) { alert("Please provide valid expense name and cost."); return; }
+            
+            const now = new Date();
+            let expenses = JSON.parse(localStorage.getItem('sc_expenses') || '[]');
+            expenses.push({ name, cost, date: now.toLocaleDateString(), rawDate: now.toISOString().split('T')[0] });
+            localStorage.setItem('sc_expenses', JSON.stringify(expenses));
+            alert("Consumable expense recorded successfully!");
+            document.getElementById('exp-name').value = '';
+            document.getElementById('exp-cost').value = '';
+        }
+
+        function addPayroll() {
+            const name = document.getElementById('emp-name').value;
+            const pay = parseFloat(document.getElementById('emp-pay').value);
+            if (!name || isNaN(pay) || pay <= 0) { alert("Please provide employee name and valid pay amount."); return; }
+            
+            const now = new Date();
+            let payroll = JSON.parse(localStorage.getItem('sc_payroll') || '[]');
+            payroll.push({ name, pay, date: now.toLocaleDateString(), rawDate: now.toISOString().split('T')[0] });
+            localStorage.setItem('sc_payroll', JSON.stringify(payroll));
+            alert("Salary payment recorded successfully!");
+            document.getElementById('emp-name').value = '';
+            document.getElementById('emp-pay').value = '';
+        }
+
+        function addAsset() {
+            const name = document.getElementById('a-name').value;
+            const value = parseFloat(document.getElementById('a-value').value);
+            if (!name || isNaN(value) || value <= 0) { alert("Please provide asset name and valid value."); return; }
+            
+            const now = new Date();
+            let assets = JSON.parse(localStorage.getItem('sc_assets') || '[]');
+            assets.push({ name, value, date: now.toLocaleDateString(), rawDate: now.toISOString().split('T')[0] });
+            localStorage.setItem('sc_assets', JSON.stringify(assets));
+            alert("Fixed asset recorded successfully!");
+            document.getElementById('a-name').value = '';
+            document.getElementById('a-value').value = '';
+        }
+
+        function setReportFilter(filter) {
+            currentFilter = filter;
+            ['today', 'month', 'all'].forEach(f => {
+                document.getElementById(`filter-${f}`).className = f === filter ? "px-3 py-1 bg-amber-600 text-black text-xs font-bold rounded" : "px-3 py-1 bg-gray-700 text-xs font-bold rounded";
+            });
+            loadReports();
+        }
+
+        function loadReports() {
+            const sales = JSON.parse(localStorage.getItem('sc_sales') || '[]');
+            const expenses = JSON.parse(localStorage.getItem('sc_expenses') || '[]');
+            const payroll = JSON.parse(localStorage.getItem('sc_payroll') || '[]');
+            const assets = JSON.parse(localStorage.getItem('sc_assets') || '[]');
+
+            const todayStr = new Date().toISOString().split('T')[0];
+            const currentMonthStr = todayStr.slice(0, 7);
+
+            const fSales = sales.filter(s => currentFilter === 'today' ? s.rawDate === todayStr : currentFilter === 'month' ? s.rawDate && s.rawDate.startsWith(currentMonthStr) : true);
+            const fExpenses = expenses.filter(e => currentFilter === 'today' ? e.rawDate === todayStr : currentFilter === 'month' ? e.rawDate && e.rawDate.startsWith(currentMonthStr) : true);
+            const fPayroll = payroll.filter(p => currentFilter === 'today' ? p.rawDate === todayStr : currentFilter === 'month' ? p.rawDate && p.rawDate.startsWith(currentMonthStr) : true);
+
+            const totalSales = fSales.reduce((sum, s) => sum + s.total, 0);
+            const totalDelivery = fSales.reduce((sum, s) => sum + (s.deliveryFee || 0), 0);
+            const totalConsumables = fExpenses.reduce((sum, e) => sum + e.cost, 0);
+            const totalPayroll = fPayroll.reduce((sum, p) => sum + p.pay, 0);
+            const totalOperationalCosts = totalConsumables + totalPayroll;
+            const netProfit = totalSales - totalOperationalCosts;
+            const totalAssets = assets.reduce((sum, a) => sum + a.value, 0);
+
+            let filterTitle = currentFilter === 'today' ? "Today's" : currentFilter === 'month' ? "This Month's" : "Lifetime All-Time";
+
+            // P&L Report HTML
+            document.getElementById('pl-report').innerHTML = `
+                <div class="text-xs text-amber-500 font-bold uppercase mb-2">Showing Statement For: ${filterTitle}</div>
+                <div class="flex justify-between border-b border-gray-700 pb-3 font-bold text-lg"><span>Total Revenue (Sales + Delivery):</span> <span class="text-green-400">PKR ${totalSales.toLocaleString()}</span></div>
+                <div class="flex justify-between border-b border-gray-700 pb-2 text-sm text-gray-300 pl-4"><span>- Consumables & Utilities (LPG, Oil, etc.):</span> <span class="text-red-400 font-semibold">PKR ${totalConsumables.toLocaleString()}</span></div>
+                <div class="flex justify-between border-b border-gray-700 pb-3 text-sm text-gray-300 pl-4"><span>- Employee Salaries & Payroll:</span> <span class="text-red-400 font-semibold">PKR ${totalPayroll.toLocaleString()}</span></div>
+                <div class="flex justify-between border-b border-gray-700 pb-3 text-xl font-black"><span>Total Expenses:</span> <span class="text-red-500">PKR ${totalOperationalCosts.toLocaleString()}</span></div>
+                <div class="flex justify-between text-2xl font-black bg-gray-900 p-3 rounded border border-gray-700"><span>Net Profit / (Loss):</span> <span class="${netProfit >= 0 ? 'text-amber-400' : 'text-red-500'}">PKR ${netProfit.toLocaleString()}</span></div>
+            `;
+
+            // Customer Tracking Table
+            const customerTable = document.getElementById('customer-table-body');
+            customerTable.innerHTML = '';
+            let customerMap = {};
+            sales.forEach(s => {
+                if (s.customer) {
+                    let key = s.customer.id;
+                    if (!customerMap[key]) {
+                        customerMap[key] = { id: s.customer.id, name: s.customer.name, phone: s.customer.phone, orders: 0, spent: 0, lastDate: s.date };
+                    }
+                    customerMap[key].orders++;
+                    customerMap[key].spent += s.total;
+                    customerMap[key].lastDate = s.date;
+                }
+            });
+
+            const customersArr = Object.values(customerMap);
+            if (customersArr.length === 0) {
+                customerTable.innerHTML = `<tr><td colspan="5" class="p-3 text-center text-gray-500 italic">No customer records yet.</td></tr>`;
+            } else {
+                customersArr.forEach(c => {
+                    customerTable.innerHTML += `<tr class="border-b border-gray-700/50"><td class="p-3 font-semibold text-amber-400">${c.name} <span class="text-xs text-gray-400 block">${c.id}</span></td><td class="p-3">${c.phone}</td><td class="p-3">${c.orders}</td><td class="p-3 text-green-400 font-bold">PKR ${c.spent.toLocaleString()}</td><td class="p-3 text-xs text-gray-300">${c.lastDate}</td></tr>`;
+                });
+            }
+
+            // Fixed Assets Report HTML
+            const assetsList = document.getElementById('assets-report-list');
+            assetsList.innerHTML = '';
+            if (assets.length === 0) {
+                assetsList.innerHTML = `<p class="text-gray-500 italic text-xs">No fixed assets recorded.</p>`;
+            } else {
+                assets.forEach(a => {
+                    assetsList.innerHTML += `<div class="flex justify-between border-b border-gray-700/50 pb-1 text-xs"><span>${a.name}</span><span class="text-cyan-400 font-bold">PKR ${a.value.toLocaleString()}</span></div>`;
+                });
+                assetsList.innerHTML += `<div class="flex justify-between pt-2 font-bold text-sm"><span>Total Valuation:</span><span class="text-cyan-400">PKR ${totalAssets.toLocaleString()}</span></div>`;
+            }
+
+            // Delivery Report HTML
+            const deliveryBox = document.getElementById('delivery-report-box');
+            deliveryBox.innerHTML = `
+                <div class="flex justify-between border-b border-gray-700/50 pb-1 text-xs"><span>Total Orders Delivered:</span> <span class="font-bold">${fSales.filter(s=>s.orderType==='Delivery').length} Orders</span></div>
+                <div class="flex justify-between pt-2 font-bold text-sm"><span>Delivery Revenue:</span> <span class="text-amber-400">PKR ${totalDelivery.toLocaleString()}</span></div>
+            `;
+        }
+
+        function exportData() {
+            const data = {
+                sales: JSON.parse(localStorage.getItem('sc_sales') || '[]'),
+                inventory: JSON.parse(localStorage.getItem('sc_inventory') || '[]'),
+                expenses: JSON.parse(localStorage.getItem('sc_expenses') || '[]'),
+                payroll: JSON.parse(localStorage.getItem('sc_payroll') || '[]'),
+                assets: JSON.parse(localStorage.getItem('sc_assets') || '[]')
+            };
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", "street_cravings_enterprise_backup.json");
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        function switchTab(tab) {
+            ['pos', 'inventory', 'expenses', 'reports'].forEach(t => {
+                document.getElementById(`section-${t}`).classList.add('hidden');
+                document.getElementById(`tab-${t}`).className = "px-5 py-3 font-bold border-b-2 border-transparent text-gray-400 hover:text-white focus:outline-none whitespace-nowrap";
+            });
+            document.getElementById(`section-${tab}`).classList.remove('hidden');
+            document.getElementById(`tab-${tab}`).className = "px-5 py-3 font-bold border-b-2 border-amber-500 text-amber-500 focus:outline-none whitespace-nowrap";
+
+            if (tab === 'inventory') loadInventoryData();
+            if (tab === 'reports') loadReports();
+        }
+
+        renderMenu('All');
+    </script>
+</body>
+</html>
